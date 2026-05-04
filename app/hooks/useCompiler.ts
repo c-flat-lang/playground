@@ -113,7 +113,9 @@ export function useCompiler() {
     onRaylibStart?.();
 
     // Wait one animation frame so React has rendered the canvas into the DOM.
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
 
     const raylibWasmUrl = new URL(
       "../../lib/raylib/raylib.wasm",
@@ -121,9 +123,8 @@ export function useCompiler() {
     ).toString();
 
     // import() is module-cached after the first load.
-    const { default: createRaylib } = await import(
-      "../../lib/raylib/raylib.js"
-    );
+    const { default: createRaylib } =
+      await import("../../lib/raylib/raylib.js");
 
     // Capture the raw Raylib WASM exports (malloc, free, memory) from the
     // instantiateWasm callback — they are not exposed on the Module object.
@@ -146,10 +147,11 @@ export function useCompiler() {
         // Asyncify never runs, which is fine because we own the loop via RAF.
         instantiateWasm(
           info: WebAssembly.Imports,
-          receive: (inst: WebAssembly.Instance, mod: WebAssembly.Module) => void,
+          receive: (
+            inst: WebAssembly.Instance,
+            mod: WebAssembly.Module,
+          ) => void,
         ) {
-          (info as { env: Record<string, unknown> }).env.emscripten_sleep =
-            () => {};
           WebAssembly.instantiateStreaming(fetch(raylibWasmUrl), info).then(
             (r) => {
               rlWasmExports = r.instance.exports;
@@ -165,9 +167,9 @@ export function useCompiler() {
     // Raylib is compiled by Emscripten: its exported functions take pointers
     // into Raylib's own WASM memory, not packed JS values.
     // malloc/free/memory are on the raw WASM exports, not on the Module object.
-    const rlMalloc = (rlWasmExports!.malloc as (n: number) => number);
-    const rlFree   = (rlWasmExports!.free   as (p: number) => void);
-    const rlMemory = (rlWasmExports!.memory as WebAssembly.Memory);
+    const rlMalloc = rlWasmExports!.malloc as (n: number) => number;
+    const rlFree = rlWasmExports!.free as (p: number) => void;
+    const rlMemory = rlWasmExports!.memory as WebAssembly.Memory;
     // Pre-allocate a permanent 4-byte buffer for Color structs.
     const rlColorBuf: number = rlMalloc(4);
 
@@ -175,12 +177,12 @@ export function useCompiler() {
     function writeRaylibColor(colorPtr: number): number {
       const heap = new Uint8Array(rlMemory.buffer);
       if (memoryBuffer) {
-        heap[rlColorBuf]     = memoryBuffer[colorPtr];
+        heap[rlColorBuf] = memoryBuffer[colorPtr];
         heap[rlColorBuf + 1] = memoryBuffer[colorPtr + 1];
         heap[rlColorBuf + 2] = memoryBuffer[colorPtr + 2];
         heap[rlColorBuf + 3] = memoryBuffer[colorPtr + 3];
       } else {
-        heap[rlColorBuf] = heap[rlColorBuf+1] = heap[rlColorBuf+2] = 0;
+        heap[rlColorBuf] = heap[rlColorBuf + 1] = heap[rlColorBuf + 2] = 0;
         heap[rlColorBuf + 3] = 255;
       }
       return rlColorBuf;
@@ -283,7 +285,13 @@ export function useCompiler() {
         ) => {
           const text = memoryBuffer ? readCString(memoryBuffer, textPtr) : "";
           const rlTextPtr = writeRaylibString(text);
-          rl._rl_DrawText(rlTextPtr, x, y, fontSize, writeRaylibColor(colorPtr));
+          rl._rl_DrawText(
+            rlTextPtr,
+            x,
+            y,
+            fontSize,
+            writeRaylibColor(colorPtr),
+          );
           rlFree(rlTextPtr);
         },
       },
@@ -313,18 +321,20 @@ export function useCompiler() {
     // Refresh memoryBuffer after grow (backing ArrayBuffer is replaced).
     memoryBuffer = new Uint8Array(asyncifyMemory.buffer);
     const view32 = new Int32Array(asyncifyMemory.buffer);
-    view32[asyncifyDataAddr >> 2]       = asyncifyDataAddr + 8;
+    view32[asyncifyDataAddr >> 2] = asyncifyDataAddr + 8;
     view32[(asyncifyDataAddr >> 2) + 1] = asyncifyDataAddr + ASYNCIFY_DATA_SIZE;
 
     // Set the Asyncify function references — end_drawing closes over these.
-    asyncify_start_unwind_fn = instance.exports
-      .asyncify_start_unwind as (addr: number) => void;
-    asyncify_stop_rewind_fn  = instance.exports
-      .asyncify_stop_rewind  as () => void;
-    const asyncify_stop_unwind  = instance.exports
-      .asyncify_stop_unwind  as () => void;
-    const asyncify_start_rewind = instance.exports
-      .asyncify_start_rewind as (addr: number) => void;
+    asyncify_start_unwind_fn = instance.exports.asyncify_start_unwind as (
+      addr: number,
+    ) => void;
+    asyncify_stop_rewind_fn = instance.exports
+      .asyncify_stop_rewind as () => void;
+    const asyncify_stop_unwind = instance.exports
+      .asyncify_stop_unwind as () => void;
+    const asyncify_start_rewind = instance.exports.asyncify_start_rewind as (
+      addr: number,
+    ) => void;
 
     return new Promise<RunResult>((resolve) => {
       function finish(result: RunResult) {
@@ -356,4 +366,3 @@ export function useCompiler() {
 
   return { ready, compile, run };
 }
-
