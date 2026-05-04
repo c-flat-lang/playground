@@ -1,0 +1,15 @@
+{
+  "name": "c-flat",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "cflat_bg.wasm",
+    "cflat.js",
+    "cflat.d.ts"
+  ],
+  "main": "cflat.js",
+  "types": "cflat.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
