@@ -1,0 +1,11 @@
+{
+  "name": "raylib",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "raylib.wasm",
+    "raylib.js"
+  ],
+  "main": "raylib.js"
+}
+

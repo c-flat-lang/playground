@@ -152,17 +152,12 @@ export function useCompiler() {
             mod: WebAssembly.Module,
           ) => void,
         ) {
-          WebAssembly.instantiateStreaming(
-            fetch(raylibWasmUrl, {
-              headers: {
-                "Content-Type": "application/wasm",
-              },
-            }),
-            info,
-          ).then((r) => {
-            rlWasmExports = r.instance.exports;
-            receive(r.instance, r.module);
-          });
+          WebAssembly.instantiateStreaming(fetch(raylibWasmUrl), info).then(
+            (r) => {
+              rlWasmExports = r.instance.exports;
+              receive(r.instance, r.module);
+            },
+          );
         },
       });
     } catch (err) {
