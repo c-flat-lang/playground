@@ -1,11 +1,10 @@
 "use client";
 
 interface ToolbarProps {
-  onStop: () => void;
   vimMode: string;
 }
 
-export default function Toolbar({ onStop, vimMode }: ToolbarProps) {
+export default function Toolbar({ vimMode }: ToolbarProps) {
   return (
     <div className="flex items-center justify-between px-3 h-8 bg-[#3c3836] text-white text-xs font-mono select-none shrink-0 relative z-[100]">
       {/* Left: vim mode */}

@@ -210,13 +210,7 @@ export default function Home() {
             <Output output={output} error={error} status={status} />
           </div>
         </div>
-        <Toolbar
-          onRun={handleRun}
-          onStop={handleStop}
-          ready={ready}
-          status={status}
-          vimMode={vimMode}
-        />
+        <Toolbar vimMode={vimMode} />
       </div>
     </>
   );
