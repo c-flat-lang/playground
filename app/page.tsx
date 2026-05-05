@@ -105,6 +105,8 @@ export default function Home() {
     localStorage.setItem("vimKeysState", String(vimKeysState));
   }, [vimKeysState]);
 
+  const busy = status === "compiling" || status === "running";
+
   return (
     <>
       {canvasVisible && (
@@ -127,27 +129,27 @@ export default function Home() {
         <div className="flex flex-col md:flex-row flex-1 min-h-0">
           <div
             className="
-          flex flex-col min-w-0
-          border-b md:border-b-0 md:border-r border-[#3e3e3e]
-          /* Mobile: 75% height */
-          h-3/4 md:h-auto md:flex-1"
+            flex flex-col min-w-0
+            border-b md:border-b-0 md:border-r border-[#3e3e3e]
+            /* Mobile: 75% height */
+            h-3/4 md:h-auto md:flex-1"
           >
             <div
               className="
-            flex flex-row min-w-0
-            px-3 py-1 bg-[#252526]"
+              flex flex-row min-w-0
+              px-3 py-1 bg-[#252526]"
             >
               <div
                 className="
-              flex items-center
-              px-3 py-1 bg-[#252526]
-              text-xs text-[#858585] font-mono"
+                flex items-center
+                px-3 py-1 bg-[#252526]
+                text-xs text-[#858585] font-mono"
               >
                 <button
                   className="
-                bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                font-semibold py-2 px-4 border border-gray-400
-                rounded shadow"
+                  bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
+                  font-semibold py-2 px-4 border border-gray-400
+                  rounded shadow"
                   onClick={share}
                 >
                   Share
@@ -156,17 +158,37 @@ export default function Home() {
 
               <div
                 className="
-              flex items-center
-              px-3 py-1 bg-[#252526]
-              text-xs text-[#858585] font-mono"
+                flex items-center
+                px-3 py-1 bg-[#252526]
+                text-xs text-[#858585] font-mono"
               >
                 <button
                   className="
-                bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                font-semibold py-2 px-4 border border-gray-400 rounded shadow"
+                  bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
+                  font-semibold py-2 px-4 border border-gray-400 rounded shadow"
                   onClick={() => setVimKeysState(!vimKeysState)}
                 >
                   Toggle Vim {vimKeysState ? "On" : "Off"}
+                </button>
+              </div>
+              <div
+                className="
+                flex items-center
+                px-3 py-1 bg-[#252526]
+                text-xs text-[#858585] font-mono"
+              >
+                <button
+                  onClick={handleRun}
+                  disabled={!ready || busy}
+                  className="
+                  bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
+                  font-semibold py-2 px-4 border border-gray-400 rounded shadow"
+                >
+                  {busy
+                    ? status === "compiling"
+                      ? "Compiling…"
+                      : "Running…"
+                    : "▶ Run"}
                 </button>
               </div>
             </div>
@@ -177,14 +199,13 @@ export default function Home() {
           </div>
           <div
             className="
-        min-h-0
+            min-h-0
 
-        /* Mobile: bottom 25% */
-        h-1/4
+            /* Mobile: bottom 25% */
+            h-1/4
 
-        /* Desktop: right panel */
-        md:h-auto md:w-[40%]
-      "
+            /* Desktop: right panel */
+            md:h-auto md:w-[40%]"
           >
             <Output output={output} error={error} status={status} />
           </div>
