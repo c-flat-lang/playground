@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
+const isGithubPages = process.env.GITHUB_PAGES === "true";
+
 const nextConfig: NextConfig = {
   output: "export",
-  basePath: "/playground",
-  assetPrefix: "/playground/",
+  basePath: isGithubPages ? "/playground" : "",
+  assetPrefix: isGithubPages ? "/playground/" : "",
   trailingSlash: true,
 };
 
