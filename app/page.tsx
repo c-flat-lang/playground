@@ -11,17 +11,82 @@ const Editor = dynamic(() => import("./components/Editor"), { ssr: false });
 
 type Status = "idle" | "compiling" | "running" | "done";
 
+type TopBarProps = {
+  share: () => void;
+  toggleVim: () => void;
+  run: () => void;
+  ready: boolean;
+  busy: boolean;
+  status: Status;
+  vimKeysState: boolean;
+};
+
+function TopBar({
+  share,
+  toggleVim,
+  run,
+  ready,
+  busy,
+  status,
+  vimKeysState,
+}: TopBarProps) {
+  const buttonDivClassNames =
+    "flex items-center px-3 py-1 bg-[#252526] text-xs text-[#858585] font-mono";
+
+  const buttonClass =
+    "bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585] font-semibold py-2 px-4 border border-gray-400 rounded shadow";
+
+  return (
+    <div className="flex px-3 py-1 bg-[#252526]">
+      <div className={buttonDivClassNames}>
+        <button className={buttonClass} onClick={share}>
+          Share
+        </button>
+      </div>
+
+      <div className={buttonDivClassNames}>
+        <button className={buttonClass} onClick={toggleVim}>
+          Toggle Vim {vimKeysState ? "On" : "Off"}
+        </button>
+      </div>
+
+      <div className={buttonDivClassNames}>
+        <button onClick={run} disabled={!ready || busy} className={buttonClass}>
+          {busy
+            ? status === "compiling"
+              ? "Compiling…"
+              : "Running…"
+            : "▶ Run"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const editorRef = useRef<EditorHandle>(null);
   const [output, setOutput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
-  const [vimMode] = useState("NORMAL");
+  const [vimMode, setVimMode] = useState("NORMAL");
+  const [split, setSplit] = useState(60); // left panel %
+  const dragging = useRef(false);
   const [vimKeysState, setVimKeysState] = useState(true);
   const [canvasKey, setCanvasKey] = useState(0);
   const [canvasVisible, setCanvasVisible] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const { ready, compile, run } = useCompiler();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+
+    const update = () => setIsMobile(mq.matches);
+    update();
+
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   function handleStop() {
     abortRef.current?.abort();
@@ -105,6 +170,28 @@ export default function Home() {
     localStorage.setItem("vimKeysState", String(vimKeysState));
   }, [vimKeysState]);
 
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (!dragging.current) return;
+
+      const newSplit = (e.clientX / window.innerWidth) * 100;
+
+      setSplit(Math.min(80, Math.max(20, newSplit)));
+    }
+
+    function onUp() {
+      dragging.current = false;
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
   const busy = status === "compiling" || status === "running";
 
   return (
@@ -126,86 +213,54 @@ export default function Home() {
         </div>
       )}
       <div className="flex flex-col h-screen bg-[#1e1e1e] text-white overflow-hidden">
-        <div className="flex flex-col md:flex-row flex-1 min-h-0">
+        <div
+          className={
+            isMobile
+              ? "flex flex-col h-screen bg-[#1e1e1e] text-white overflow-hidden"
+              : "flex flex-1 min-h-0"
+          }
+        >
           <div
-            className="
-            flex flex-col min-w-0
-            border-b md:border-b-0 md:border-r border-[#3e3e3e]
-            /* Mobile: 75% height */
-            h-3/4 md:h-auto md:flex-1"
+            {...(isMobile
+              ? {
+                  className:
+                    "h-[70%] min-h-0 border-b border-[#3e3e3e] flex flex-col",
+                }
+              : {
+                  className: "flex flex-col min-w-0 border-r border-[#3e3e3e]",
+                  style: { width: `${split}%` },
+                })}
           >
-            <div
-              className="
-              flex flex-row min-w-0
-              px-3 py-1 bg-[#252526]"
-            >
-              <div
-                className="
-                flex items-center
-                px-3 py-1 bg-[#252526]
-                text-xs text-[#858585] font-mono"
-              >
-                <button
-                  className="
-                  bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                  font-semibold py-2 px-4 border border-gray-400
-                  rounded shadow"
-                  onClick={share}
-                >
-                  Share
-                </button>
-              </div>
-
-              <div
-                className="
-                flex items-center
-                px-3 py-1 bg-[#252526]
-                text-xs text-[#858585] font-mono"
-              >
-                <button
-                  className="
-                  bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                  font-semibold py-2 px-4 border border-gray-400 rounded shadow"
-                  onClick={() => setVimKeysState(!vimKeysState)}
-                >
-                  Toggle Vim {vimKeysState ? "On" : "Off"}
-                </button>
-              </div>
-              <div
-                className="
-                flex items-center
-                px-3 py-1 bg-[#252526]
-                text-xs text-[#858585] font-mono"
-              >
-                <button
-                  onClick={handleRun}
-                  disabled={!ready || busy}
-                  className="
-                  bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                  font-semibold py-2 px-4 border border-gray-400 rounded shadow"
-                >
-                  {busy
-                    ? status === "compiling"
-                      ? "Compiling…"
-                      : "Running…"
-                    : "▶ Run"}
-                </button>
-              </div>
-            </div>
+            <TopBar
+              share={share}
+              toggleVim={() => setVimKeysState(!vimKeysState)}
+              run={handleRun}
+              ready={ready}
+              busy={busy}
+              status={status}
+              vimKeysState={vimKeysState}
+            />
 
             <div className="flex-1 min-h-0">
-              <Editor vimKeysEnabled={vimKeysState} ref={editorRef} />
+              <Editor
+                handleRun={handleRun}
+                vimKeysEnabled={vimKeysState}
+                ref={editorRef}
+              />
             </div>
           </div>
+
+          {!isMobile && (
+            <div
+              className="w-1 cursor-col-resize bg-[#3e3e3e] hover:bg-blue-500 transition"
+              onMouseDown={() => (dragging.current = true)}
+            />
+          )}
+
           <div
-            className="
-            min-h-0
-
-            /* Mobile: bottom 25% */
-            h-1/4
-
-            /* Desktop: right panel */
-            md:h-auto md:w-[40%]"
+            {...(isMobile
+              ? { className: "h-[30%] min-h-0" }
+              : { className: "min-h-0", style: { width: `${100 - split}%` } })}
           >
             <Output output={output} error={error} status={status} />
           </div>

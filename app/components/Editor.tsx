@@ -23,7 +23,7 @@ import {
   bracketMatching,
 } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { vim } from "@replit/codemirror-vim";
+import { vim, Vim } from "@replit/codemirror-vim";
 import { rust } from "@codemirror/lang-rust";
 
 const DEFAULT_SOURCE = `// Fib EXAMPLE
@@ -61,11 +61,12 @@ export interface EditorHandle {
 }
 
 type Props = {
+  handleRun: () => void;
   vimKeysEnabled: boolean;
 };
 
 function Editor(props: Props, ref: Ref<EditorHandle>) {
-  const { vimKeysEnabled } = props;
+  const { handleRun, vimKeysEnabled } = props;
   const [hash, setHash] = useState("");
   const vimCompartment = useRef(new Compartment()).current;
 
@@ -113,6 +114,8 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    Vim.defineEx("write", "w", handleRun);
 
     const state = EditorState.create({
       doc: localStorage.getItem("src") ?? DEFAULT_SOURCE,

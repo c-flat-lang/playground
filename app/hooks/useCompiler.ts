@@ -69,21 +69,21 @@ export function useCompiler() {
           probeRandSeed = (probeRandSeed * 1103515245 + 12345) >>> 0;
           return (probeRandSeed >>> 16) & 0x7fff;
         },
-        init_window: () => {
+        InitWindow: () => {
           throw new RaylibDetected();
         },
-        close_window: () => {},
-        window_should_close: (): boolean => false,
-        begin_drawing: () => {},
-        end_drawing: () => {},
-        set_target_fps: () => {},
-        is_key_pressed: (): boolean => false,
-        is_gamepad_button_pressed: (): boolean => false,
-        get_frame_time: (): number => 0,
-        check_collision_recs: (): boolean => false,
-        clear_background: () => {},
-        draw_rectangle: () => {},
-        draw_text: () => {},
+        CloseWindow: () => {},
+        WindowShouldClose: (): boolean => false,
+        BeginDrawing: () => {},
+        EndDrawing: () => {},
+        SetTargetFps: () => {},
+        IsKeyPressed: (): boolean => false,
+        IsGamepadButtonPressed: (): boolean => false,
+        GetFrameTime: (): number => 0,
+        CheckCollisionRecs: (): boolean => false,
+        ClearBackground: () => {},
+        DrawRectangle: () => {},
+        DrawText: () => {},
       },
     };
 
@@ -113,7 +113,9 @@ export function useCompiler() {
     onRaylibStart?.();
 
     // Wait one animation frame so React has rendered the canvas into the DOM.
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
 
     const raylibWasmUrl = new URL(
       "../../lib/raylib/raylib.wasm",
@@ -121,9 +123,8 @@ export function useCompiler() {
     ).toString();
 
     // import() is module-cached after the first load.
-    const { default: createRaylib } = await import(
-      "../../lib/raylib/raylib.js"
-    );
+    const { default: createRaylib } =
+      await import("../../lib/raylib/raylib.js");
 
     // Capture the raw Raylib WASM exports (malloc, free, memory) from the
     // instantiateWasm callback — they are not exposed on the Module object.
@@ -146,7 +147,10 @@ export function useCompiler() {
         // Asyncify never runs, which is fine because we own the loop via RAF.
         instantiateWasm(
           info: WebAssembly.Imports,
-          receive: (inst: WebAssembly.Instance, mod: WebAssembly.Module) => void,
+          receive: (
+            inst: WebAssembly.Instance,
+            mod: WebAssembly.Module,
+          ) => void,
         ) {
           (info as { env: Record<string, unknown> }).env.emscripten_sleep =
             () => {};
@@ -165,9 +169,9 @@ export function useCompiler() {
     // Raylib is compiled by Emscripten: its exported functions take pointers
     // into Raylib's own WASM memory, not packed JS values.
     // malloc/free/memory are on the raw WASM exports, not on the Module object.
-    const rlMalloc = (rlWasmExports!.malloc as (n: number) => number);
-    const rlFree   = (rlWasmExports!.free   as (p: number) => void);
-    const rlMemory = (rlWasmExports!.memory as WebAssembly.Memory);
+    const rlMalloc = rlWasmExports!.malloc as (n: number) => number;
+    const rlFree = rlWasmExports!.free as (p: number) => void;
+    const rlMemory = rlWasmExports!.memory as WebAssembly.Memory;
     // Pre-allocate a permanent 4-byte buffer for Color structs.
     const rlColorBuf: number = rlMalloc(4);
 
@@ -175,12 +179,12 @@ export function useCompiler() {
     function writeRaylibColor(colorPtr: number): number {
       const heap = new Uint8Array(rlMemory.buffer);
       if (memoryBuffer) {
-        heap[rlColorBuf]     = memoryBuffer[colorPtr];
+        heap[rlColorBuf] = memoryBuffer[colorPtr];
         heap[rlColorBuf + 1] = memoryBuffer[colorPtr + 1];
         heap[rlColorBuf + 2] = memoryBuffer[colorPtr + 2];
         heap[rlColorBuf + 3] = memoryBuffer[colorPtr + 3];
       } else {
-        heap[rlColorBuf] = heap[rlColorBuf+1] = heap[rlColorBuf+2] = 0;
+        heap[rlColorBuf] = heap[rlColorBuf + 1] = heap[rlColorBuf + 2] = 0;
         heap[rlColorBuf + 3] = 255;
       }
       return rlColorBuf;
@@ -229,21 +233,21 @@ export function useCompiler() {
           randSeed = (randSeed * 1103515245 + 12345) >>> 0;
           return (randSeed >>> 16) & 0x7fff;
         },
-        init_window: (w: number, h: number, t: number) => {
+        InitWindow: (w: number, h: number, t: number) => {
           if (!raylibInitialized) {
             rl._rl_InitWindow(w, h, t);
             raylibInitialized = true;
           }
         },
-        set_target_fps: (_fps: number) => {
+        SetTargetFps: (_fps: number) => {
           if (!raylibInitialized) rl._rl_SetTargetFPS(0);
         },
-        window_should_close: (): boolean => signal?.aborted ?? false,
-        begin_drawing: () => rl._rl_BeginDrawing(),
+        WindowShouldClose: (): boolean => signal?.aborted ?? false,
+        BeginDrawing: () => rl._rl_BeginDrawing(),
         // Closes over asyncifyState / asyncifyDataAddr / asyncify_*_fn.
         // Those are let-variables set after WASM instantiation — closures
         // capture by reference so the updates are visible here at call time.
-        end_drawing: () => {
+        EndDrawing: () => {
           if (asyncifyState === "rewinding") {
             asyncify_stop_rewind_fn!();
             asyncifyState = "normal";
@@ -256,25 +260,25 @@ export function useCompiler() {
           asyncifyState = "unwinding";
           asyncify_start_unwind_fn!(asyncifyDataAddr);
         },
-        close_window: () => rl._rl_CloseWindow(),
-        is_key_pressed: (key: number): boolean =>
+        CloseWindow: () => rl._rl_CloseWindow(),
+        IsKeyPressed: (key: number): boolean =>
           rl._rl_IsKeyPressed(key) as boolean,
-        is_gamepad_button_pressed: (pad: number, key: number): boolean =>
+        IsGamepadButtonPressed: (pad: number, key: number): boolean =>
           rl._rl_IsGamepadButtonPressed(pad, key) as boolean,
-        get_frame_time: (): number => rl._rl_GetFrameTime() as number,
-        check_collision_recs: (lhs: unknown, rhs: unknown): boolean =>
+        GetFrameTime: (): number => rl._rl_GetFrameTime() as number,
+        CheckCollisionRecs: (lhs: unknown, rhs: unknown): boolean =>
           rl._rl_CheckCollisionRecs(lhs, rhs) as boolean,
-        clear_background: (ptr: number) => {
+        ClearBackground: (ptr: number) => {
           rl._rl_ClearBackground(writeRaylibColor(ptr));
         },
-        draw_rectangle: (
+        DrawRectangle: (
           x: number,
           y: number,
           w: number,
           h: number,
           colorPtr: number,
         ) => rl._rl_DrawRectangle(x, y, w, h, writeRaylibColor(colorPtr)),
-        draw_text: (
+        DrawText: (
           textPtr: number,
           x: number,
           y: number,
@@ -283,7 +287,13 @@ export function useCompiler() {
         ) => {
           const text = memoryBuffer ? readCString(memoryBuffer, textPtr) : "";
           const rlTextPtr = writeRaylibString(text);
-          rl._rl_DrawText(rlTextPtr, x, y, fontSize, writeRaylibColor(colorPtr));
+          rl._rl_DrawText(
+            rlTextPtr,
+            x,
+            y,
+            fontSize,
+            writeRaylibColor(colorPtr),
+          );
           rlFree(rlTextPtr);
         },
       },
@@ -313,18 +323,20 @@ export function useCompiler() {
     // Refresh memoryBuffer after grow (backing ArrayBuffer is replaced).
     memoryBuffer = new Uint8Array(asyncifyMemory.buffer);
     const view32 = new Int32Array(asyncifyMemory.buffer);
-    view32[asyncifyDataAddr >> 2]       = asyncifyDataAddr + 8;
+    view32[asyncifyDataAddr >> 2] = asyncifyDataAddr + 8;
     view32[(asyncifyDataAddr >> 2) + 1] = asyncifyDataAddr + ASYNCIFY_DATA_SIZE;
 
     // Set the Asyncify function references — end_drawing closes over these.
-    asyncify_start_unwind_fn = instance.exports
-      .asyncify_start_unwind as (addr: number) => void;
-    asyncify_stop_rewind_fn  = instance.exports
-      .asyncify_stop_rewind  as () => void;
-    const asyncify_stop_unwind  = instance.exports
-      .asyncify_stop_unwind  as () => void;
-    const asyncify_start_rewind = instance.exports
-      .asyncify_start_rewind as (addr: number) => void;
+    asyncify_start_unwind_fn = instance.exports.asyncify_start_unwind as (
+      addr: number,
+    ) => void;
+    asyncify_stop_rewind_fn = instance.exports
+      .asyncify_stop_rewind as () => void;
+    const asyncify_stop_unwind = instance.exports
+      .asyncify_stop_unwind as () => void;
+    const asyncify_start_rewind = instance.exports.asyncify_start_rewind as (
+      addr: number,
+    ) => void;
 
     return new Promise<RunResult>((resolve) => {
       function finish(result: RunResult) {
@@ -356,4 +368,3 @@ export function useCompiler() {
 
   return { ready, compile, run };
 }
-
