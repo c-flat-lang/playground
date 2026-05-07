@@ -2,7 +2,7 @@
 
 import utils from "./utils";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { RefObject, useEffect, useRef, useState } from "react";
 import Output from "./components/Output";
 import Toolbar from "./components/Toolbar";
 import Menu from "./components/Menu";
@@ -20,9 +20,20 @@ type TopBarProps = {
   busy: boolean;
   status: Status;
   menuToggle: () => void;
+  vimKeysState: boolean;
+  saveFileToLocalStorage: () => void;
 };
 
-function TopBar({ share, run, ready, busy, status, menuToggle }: TopBarProps) {
+function TopBar({
+  share,
+  run,
+  ready,
+  busy,
+  status,
+  menuToggle,
+  vimKeysState,
+  saveFileToLocalStorage,
+}: TopBarProps) {
   const buttonDivClassNames =
     "flex items-center px-3 py-1 bg-[#252526] text-xs text-[#858585] font-mono";
 
@@ -61,8 +72,43 @@ function TopBar({ share, run, ready, busy, status, menuToggle }: TopBarProps) {
           Share
         </button>
       </div>
+
+      {!vimKeysState && (
+        <div className={buttonDivClassNames}>
+          <button
+            title="save for later"
+            className={buttonClass}
+            onClick={saveFileToLocalStorage}
+          >
+            Save
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+function saveFileToLocalStorage(
+  editor: RefObject<EditorHandle | null>,
+  currentFileName: string | null,
+  setCurrentFileName: (name: string) => void,
+) {
+  let fileName = currentFileName;
+  if (!currentFileName) {
+    const newFileName = window.prompt("save as:");
+    if (!newFileName) {
+      throw new Error("missing name");
+    }
+    setCurrentFileName(newFileName);
+    fileName = newFileName;
+  }
+  const source = editor.current?.getValue?.();
+  if (!source) {
+    throw new Error("Missing editor handle");
+  }
+  utils.compressString(source).then((cmp) => {
+    localStorage.setItem(`file-${fileName}`, String.fromCharCode(...cmp));
+  });
 }
 
 export default function Home() {
@@ -243,6 +289,14 @@ export default function Home() {
               busy={busy}
               status={status}
               menuToggle={() => setMenuToggle(!menuToggle)}
+              vimKeysState={vimKeysState}
+              saveFileToLocalStorage={() =>
+                saveFileToLocalStorage(
+                  editorRef,
+                  currentFileName,
+                  setCurrentFileName,
+                )
+              }
             />
 
             <div className="flex-1 min-h-0">

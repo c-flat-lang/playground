@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import CheckBox from "./CheckBox";
 
 type Props = {
   menuToggle: () => void;
@@ -60,14 +61,13 @@ export default function Menu({
           />
         </button>
       </div>
+      <hr className="m-3" />
       <div>
-        <input
-          className="m-1"
-          type="checkbox"
+        <CheckBox
           onChange={toggleVim}
+          label="Use vim keys"
           {...{ checked: vimKeysState }}
         />
-        <label>Use vim keys</label>
       </div>
       <div className="text-center">
         <hr className="m-3" />
