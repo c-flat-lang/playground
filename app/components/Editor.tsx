@@ -16,6 +16,7 @@ import {
   lineNumbers,
   drawSelection,
   highlightActiveLine,
+  ViewUpdate,
 } from "@codemirror/view";
 import { defaultKeymap, historyKeymap, history } from "@codemirror/commands";
 import {
@@ -24,7 +25,7 @@ import {
   bracketMatching,
 } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { vim, Vim, vimState } from "@replit/codemirror-vim";
+import { CodeMirrorV, ExParams, vim, Vim } from "@replit/codemirror-vim";
 import { rust } from "@codemirror/lang-rust";
 
 const DEFAULT_SOURCE = `// Fib EXAMPLE
@@ -56,7 +57,7 @@ type Props = {
   handleRun: () => void;
   vimKeysEnabled: boolean;
   currentFileName: string | null;
-  setCurrentFileName: (name: string) => void;
+  setCurrentFileName: (name: string | null) => void;
   setVimMode: (mode: string) => void;
 };
 
@@ -128,22 +129,22 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    Vim.defineEx("write", "w", function(cm: unknown, params: { args: string[] }, range: unknown, done: (msg: string) => void) {
+    Vim.defineEx("write", "w", function(cm: CodeMirrorV, params: ExParams) {
       const source = viewRef.current?.state.doc.toString() ?? "";
-      if (!params.args.length && !currentFileName) {
-        done("File name required");
+      if (!params?.args?.length && !currentFileName) {
+        throw new Error("E32: No file name");
       }
 
       if (params?.args?.[0] !== currentFileName) {
-        setCurrentFileName(params.args[0])
+        setCurrentFileName(params?.args?.[0] ?? null)
       }
 
-      if (!currentFileName && params.args.length === 1) {
-        setCurrentFileName(params.args[0])
+      if (!currentFileName && params?.args?.length === 1) {
+        setCurrentFileName(params?.args?.[0])
       }
 
       utils.compressString(source).then(cmp => {
-        localStorage.setItem(`file-${params.args[0]}`, String.fromCharCode(...cmp));
+        localStorage.setItem(`file-${params?.args?.[0]}`, String.fromCharCode(...cmp));
       });
     });
 
@@ -167,15 +168,16 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
           ".cm-scroller": { fontFamily: "monospace", overflow: "auto" },
           ".cm-content": { padding: "8px 0" },
         }),
-        EditorView.updateListener.of((v, ...args) => {
-          const mode = v?.view?.cm?.state?.vim?.mode;
+        EditorView.updateListener.of((value: ViewUpdate) => {
+          // @ts-ignore
+          const mode = value?.view?.cm?.state?.vim?.mode;
           if (mode) {
             setVimMode(mode)
           }
-          if (!v.docChanged) {
+          if (!value.docChanged) {
             return;
           }
-          const content = v.state.doc.toString();
+          const content = value.state.doc.toString();
           localStorage.setItem("src", content);
         }),
       ],

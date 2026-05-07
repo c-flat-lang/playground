@@ -17,6 +17,7 @@ export default function Menu({
 
   useEffect(() => {
     const handleOutSideClick = (event: Event) => {
+      // @ts-ignore
       if (!ref.current?.contains(event.target)) {
         menuToggle();
       }
