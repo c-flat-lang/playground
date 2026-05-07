@@ -1,9 +1,11 @@
 "use client";
 
+import utils from "./utils";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Output from "./components/Output";
 import Toolbar from "./components/Toolbar";
+import Menu from "./components/Menu";
 import { useCompiler } from "./hooks/useCompiler";
 import type { EditorHandle } from "./components/Editor";
 
@@ -13,23 +15,14 @@ type Status = "idle" | "compiling" | "running" | "done";
 
 type TopBarProps = {
   share: () => void;
-  toggleVim: () => void;
   run: () => void;
   ready: boolean;
   busy: boolean;
   status: Status;
-  vimKeysState: boolean;
+  menuToggle: () => void;
 };
 
-function TopBar({
-  share,
-  toggleVim,
-  run,
-  ready,
-  busy,
-  status,
-  vimKeysState,
-}: TopBarProps) {
+function TopBar({ share, run, ready, busy, status, menuToggle }: TopBarProps) {
   const buttonDivClassNames =
     "flex items-center px-3 py-1 bg-[#252526] text-xs text-[#858585] font-mono";
 
@@ -39,14 +32,13 @@ function TopBar({
   return (
     <div className="flex px-3 py-1 bg-[#252526]">
       <div className={buttonDivClassNames}>
-        <button className={buttonClass} onClick={share}>
-          Share
-        </button>
-      </div>
-
-      <div className={buttonDivClassNames}>
-        <button className={buttonClass} onClick={toggleVim}>
-          Toggle Vim {vimKeysState ? "On" : "Off"}
+        <button title="menu toggle" onClick={menuToggle}>
+          <img
+            src="./menu_icon.png"
+            alt="menu icon"
+            width="24px"
+            height="24px"
+          />
         </button>
       </div>
 
@@ -57,6 +49,16 @@ function TopBar({
               ? "Compiling…"
               : "Running…"
             : "▶ Run"}
+        </button>
+      </div>
+
+      <div className={buttonDivClassNames}>
+        <button
+          title="copy url with hashed file date to clipboard"
+          className={buttonClass}
+          onClick={share}
+        >
+          Share
         </button>
       </div>
     </div>
@@ -77,6 +79,19 @@ export default function Home() {
   const abortRef = useRef<AbortController | null>(null);
   const { ready, compile, run } = useCompiler();
   const [isMobile, setIsMobile] = useState(false);
+  const [menuToggle, setMenuToggle] = useState(false);
+  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentFileName) return;
+    const compressedSource = localStorage.getItem(`file-${currentFileName}`);
+    if (!compressedSource) {
+      return;
+    }
+    utils.decompressString(compressedSource).then((source) => {
+      editorRef.current?.setValue(source);
+    });
+  }, [currentFileName]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -129,30 +144,12 @@ export default function Home() {
     }
   }
 
-  async function compress(source: string) {
-    const encoded = new TextEncoder().encode(source);
-    const stream = new CompressionStream("deflate");
-    const writer = stream.writable.getWriter();
-    writer.write(encoded);
-    writer.close();
-    const compressed = await new Response(stream.readable).arrayBuffer();
-    return new Uint8Array(compressed);
-  }
-
-  function base64Encode(uint8: Uint8Array): string {
-    return btoa(
-      Array.from(uint8)
-        .map((b) => String.fromCharCode(b))
-        .join(""),
-    );
-  }
-
   async function share() {
     const url = new URL(window.location.href);
 
     const source = editorRef.current?.getValue() ?? "";
-    const cmp = await compress(source);
-    url.hash = base64Encode(cmp);
+    const cmp = await utils.compressString(source);
+    url.hash = utils.base64Encode(cmp);
 
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -212,6 +209,14 @@ export default function Home() {
           <canvas key={canvasKey} id="canvas" className="flex-1 w-full" />
         </div>
       )}
+      {menuToggle && !canvasVisible && (
+        <Menu
+          menuToggle={() => setMenuToggle(!menuToggle)}
+          toggleVim={() => setVimKeysState(!vimKeysState)}
+          vimKeysState={vimKeysState}
+          setCurrentFileName={setCurrentFileName}
+        />
+      )}
       <div className="flex flex-col h-screen bg-[#1e1e1e] text-white overflow-hidden">
         <div
           className={
@@ -233,18 +238,20 @@ export default function Home() {
           >
             <TopBar
               share={share}
-              toggleVim={() => setVimKeysState(!vimKeysState)}
               run={handleRun}
               ready={ready}
               busy={busy}
               status={status}
-              vimKeysState={vimKeysState}
+              menuToggle={() => setMenuToggle(!menuToggle)}
             />
 
             <div className="flex-1 min-h-0">
               <Editor
                 handleRun={handleRun}
                 vimKeysEnabled={vimKeysState}
+                currentFileName={currentFileName}
+                setCurrentFileName={setCurrentFileName}
+                setVimMode={setVimMode}
                 ref={editorRef}
               />
             </div>
@@ -265,7 +272,7 @@ export default function Home() {
             <Output output={output} error={error} status={status} />
           </div>
         </div>
-        <Toolbar vimMode={vimMode} />
+        <Toolbar vimMode={vimMode} currentFileName={currentFileName} />
       </div>
     </>
   );

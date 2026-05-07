@@ -1,5 +1,6 @@
 "use client";
 
+import utils from "../utils";
 import {
   useState,
   useEffect,
@@ -23,7 +24,7 @@ import {
   bracketMatching,
 } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { vim, Vim } from "@replit/codemirror-vim";
+import { vim, Vim, vimState } from "@replit/codemirror-vim";
 import { rust } from "@codemirror/lang-rust";
 
 const DEFAULT_SOURCE = `// Fib EXAMPLE
@@ -46,27 +47,27 @@ pub fn main() s32 {
 }
 `;
 
-async function decompress(data: string): Promise<string> {
-  const ds = new DecompressionStream("deflate");
-  const dw = ds.writable.getWriter();
-  dw.write(Uint8Array.from(data, (char) => char.charCodeAt(0)));
-  dw.close();
-
-  const decompressed = await new Response(ds.readable).arrayBuffer();
-  return new TextDecoder().decode(decompressed);
-}
-
 export interface EditorHandle {
   getValue: () => string;
+  setValue: (source: string) => void;
 }
 
 type Props = {
   handleRun: () => void;
   vimKeysEnabled: boolean;
+  currentFileName: string | null;
+  setCurrentFileName: (name: string) => void;
+  setVimMode: (mode: string) => void;
 };
 
 function Editor(props: Props, ref: Ref<EditorHandle>) {
-  const { handleRun, vimKeysEnabled } = props;
+  const {
+    handleRun,
+    vimKeysEnabled,
+    currentFileName,
+    setCurrentFileName,
+    setVimMode,
+  } = props;
   const [hash, setHash] = useState("");
   const vimCompartment = useRef(new Compartment()).current;
 
@@ -75,6 +76,17 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
 
   useImperativeHandle(ref, () => ({
     getValue: () => viewRef.current?.state.doc.toString() ?? "",
+    setValue: (source: string) => {
+      if (!viewRef.current) return;
+      const { state } = viewRef?.current;
+      if (!state) return;
+      const fullRange = { from: 0, to: state.doc.length };
+      viewRef.current.dispatch({
+        changes: { from: fullRange.from, to: fullRange.to, insert: source },
+        selection: { anchor: source.length },
+        scrollIntoView: true,
+      });
+    }
   }));
 
   useEffect(() => {
@@ -90,7 +102,8 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
     if (!view) return;
 
     const data = atob(hash);
-    decompress(data)
+    utils
+      .decompressString(data)
       .then((source) => {
         const { state } = view;
         const fullRange = { from: 0, to: state.doc.length };
@@ -115,7 +128,26 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    Vim.defineEx("write", "w", handleRun);
+    Vim.defineEx("write", "w", function(cm: unknown, params: { args: string[] }, range: unknown, done: (msg: string) => void) {
+      const source = viewRef.current?.state.doc.toString() ?? "";
+      if (!params.args.length && !currentFileName) {
+        done("File name required");
+      }
+
+      if (params?.args?.[0] !== currentFileName) {
+        setCurrentFileName(params.args[0])
+      }
+
+      if (!currentFileName && params.args.length === 1) {
+        setCurrentFileName(params.args[0])
+      }
+
+      utils.compressString(source).then(cmp => {
+        localStorage.setItem(`file-${params.args[0]}`, String.fromCharCode(...cmp));
+      });
+    });
+
+    Vim.defineEx("run", "r", handleRun);
 
     const state = EditorState.create({
       doc: localStorage.getItem("src") ?? DEFAULT_SOURCE,
@@ -135,11 +167,16 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
           ".cm-scroller": { fontFamily: "monospace", overflow: "auto" },
           ".cm-content": { padding: "8px 0" },
         }),
-        EditorView.updateListener.of((v) => {
-          if (v.docChanged) {
-            const content = v.state.doc.toString();
-            localStorage.setItem("src", content);
+        EditorView.updateListener.of((v, ...args) => {
+          const mode = v?.view?.cm?.state?.vim?.mode;
+          if (mode) {
+            setVimMode(mode)
           }
+          if (!v.docChanged) {
+            return;
+          }
+          const content = v.state.doc.toString();
+          localStorage.setItem("src", content);
         }),
       ],
     });

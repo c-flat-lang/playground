@@ -2,19 +2,19 @@
 
 interface ToolbarProps {
   vimMode: string;
+  currentFileName: string | null;
 }
 
-export default function Toolbar({ vimMode }: ToolbarProps) {
+export default function Toolbar({ vimMode, currentFileName }: ToolbarProps) {
   return (
-    <div className="flex items-center justify-between px-3 h-8 bg-[#3c3836] text-white text-xs font-mono select-none shrink-0 relative z-[100]">
+    <div className="flex px-3 h-8 bg-[#3c3836] text-white text-xs font-mono select-none shrink-0 relative z-[100]">
       {/* Left: vim mode */}
       <span className="w-24 text-yellow-200 font-bold uppercase tracking-wider">
         {vimMode || "NORMAL"}
       </span>
 
       {/* Center: title */}
-      <span className="text-white/80">C-Flat Playground</span>
-      <div></div>
+      <div>{currentFileName ? currentFileName : "[No Name]"}</div>
 
       {/* Right: run / stop buttons */}
       {/* <div className="flex gap-2"> */}
