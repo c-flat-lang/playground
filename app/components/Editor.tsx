@@ -28,23 +28,30 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { CodeMirrorV, ExParams, vim, Vim } from "@replit/codemirror-vim";
 import { rust } from "@codemirror/lang-rust";
 
-const DEFAULT_SOURCE = `// Fib EXAMPLE
-extern C fn write_int(s32) void;
+const DEFAULT_SOURCE = `// C Flat language example for "hello world"
+// Currently a string is just a array of u8's.
 extern C fn write_char(u8) void;
+// Not used in this example but it is there for debugging
+extern C fn write_int(s32) void;
 
-pub fn fib(n: s32, a: s32, b: s32) s32 {
-  let is_zero = n == 0;
-  if is_zero {
-    return a;
-  }
-  return fib(n - 1, b, a + b);
+// For now this is the only way to print a string.
+// At some point we will have a built in way.
+// For now this works
+fn println(string: ref [u8]) void {
+    let mut i: usize = 0;
+    while i < string.len {
+        write_char(string[i]);
+        i = i + 1;
+    }
+    write_char(10);
 }
 
-pub fn main() s32 {
-  let value = fib(10, 0, 1);
-  write_int(value);
-  write_char(10);
-  return 0;
+pub fn main() void {
+    println(&"Hello, World!");
+    println(&
+      // Raw strings
+      \\Hello, World!
+    );
 }
 `;
 
@@ -87,7 +94,7 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
         selection: { anchor: source.length },
         scrollIntoView: true,
       });
-    }
+    },
   }));
 
   useEffect(() => {
@@ -129,22 +136,25 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    Vim.defineEx("write", "w", function(cm: CodeMirrorV, params: ExParams) {
+    Vim.defineEx("write", "w", function (cm: CodeMirrorV, params: ExParams) {
       const source = viewRef.current?.state.doc.toString() ?? "";
       if (!params?.args?.length && !currentFileName) {
         throw new Error("E32: No file name");
       }
 
       if (params?.args?.[0] !== currentFileName) {
-        setCurrentFileName(params?.args?.[0] ?? null)
+        setCurrentFileName(params?.args?.[0] ?? null);
       }
 
       if (!currentFileName && params?.args?.length === 1) {
-        setCurrentFileName(params?.args?.[0])
+        setCurrentFileName(params?.args?.[0]);
       }
 
-      utils.compressString(source).then(cmp => {
-        localStorage.setItem(`file-${params?.args?.[0]}`, String.fromCharCode(...cmp));
+      utils.compressString(source).then((cmp) => {
+        localStorage.setItem(
+          `file-${params?.args?.[0]}`,
+          String.fromCharCode(...cmp),
+        );
       });
     });
 
@@ -172,7 +182,7 @@ function Editor(props: Props, ref: Ref<EditorHandle>) {
           // @ts-ignore
           const mode = value?.view?.cm?.state?.vim?.mode;
           if (mode) {
-            setVimMode(mode)
+            setVimMode(mode);
           }
           if (!value.docChanged) {
             return;
