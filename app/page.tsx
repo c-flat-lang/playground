@@ -1,9 +1,11 @@
 "use client";
 
+import utils from "./utils";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { RefObject, useEffect, useRef, useState } from "react";
 import Output from "./components/Output";
 import Toolbar from "./components/Toolbar";
+import Menu from "./components/Menu";
 import { useCompiler } from "./hooks/useCompiler";
 import type { EditorHandle } from "./components/Editor";
 
@@ -11,17 +13,141 @@ const Editor = dynamic(() => import("./components/Editor"), { ssr: false });
 
 type Status = "idle" | "compiling" | "running" | "done";
 
+type TopBarProps = {
+  share: () => void;
+  run: () => void;
+  ready: boolean;
+  busy: boolean;
+  status: Status;
+  menuToggle: () => void;
+  vimKeysState: boolean;
+  saveFileToLocalStorage: () => void;
+};
+
+function TopBar({
+  share,
+  run,
+  ready,
+  busy,
+  status,
+  menuToggle,
+  vimKeysState,
+  saveFileToLocalStorage,
+}: TopBarProps) {
+  const buttonDivClassNames =
+    "flex items-center px-3 py-1 bg-[#252526] text-xs text-[#858585] font-mono";
+
+  const buttonClass =
+    "bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585] font-semibold py-2 px-4 border border-gray-400 rounded shadow";
+
+  return (
+    <div className="flex px-3 py-1 bg-[#252526]">
+      <div className={buttonDivClassNames}>
+        <button title="menu toggle" onClick={menuToggle}>
+          <img
+            src="./menu_icon.png"
+            alt="menu icon"
+            width="24px"
+            height="24px"
+          />
+        </button>
+      </div>
+
+      <div className={buttonDivClassNames}>
+        <button onClick={run} disabled={!ready || busy} className={buttonClass}>
+          {busy
+            ? status === "compiling"
+              ? "Compiling…"
+              : "Running…"
+            : "▶ Run"}
+        </button>
+      </div>
+
+      <div className={buttonDivClassNames}>
+        <button
+          title="copy url with hashed file date to clipboard"
+          className={buttonClass}
+          onClick={share}
+        >
+          Share
+        </button>
+      </div>
+
+      {!vimKeysState && (
+        <div className={buttonDivClassNames}>
+          <button
+            title="save for later"
+            className={buttonClass}
+            onClick={saveFileToLocalStorage}
+          >
+            Save
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function saveFileToLocalStorage(
+  editor: RefObject<EditorHandle | null>,
+  currentFileName: string | null,
+  setCurrentFileName: (name: string) => void,
+) {
+  let fileName = currentFileName;
+  if (!currentFileName) {
+    const newFileName = window.prompt("save as:");
+    if (!newFileName) {
+      throw new Error("missing name");
+    }
+    setCurrentFileName(newFileName);
+    fileName = newFileName;
+  }
+  const source = editor.current?.getValue?.();
+  if (!source) {
+    throw new Error("Missing editor handle");
+  }
+  utils.compressString(source).then((cmp) => {
+    localStorage.setItem(`file-${fileName}`, String.fromCharCode(...cmp));
+  });
+}
+
 export default function Home() {
   const editorRef = useRef<EditorHandle>(null);
   const [output, setOutput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
-  const [vimMode] = useState("NORMAL");
+  const [vimMode, setVimMode] = useState("NORMAL");
+  const [split, setSplit] = useState(60); // left panel %
+  const dragging = useRef(false);
   const [vimKeysState, setVimKeysState] = useState(true);
   const [canvasKey, setCanvasKey] = useState(0);
   const [canvasVisible, setCanvasVisible] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const { ready, compile, run } = useCompiler();
+  const [isMobile, setIsMobile] = useState(false);
+  const [menuToggle, setMenuToggle] = useState(false);
+  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentFileName) return;
+    const compressedSource = localStorage.getItem(`file-${currentFileName}`);
+    if (!compressedSource) {
+      return;
+    }
+    utils.decompressString(compressedSource).then((source) => {
+      editorRef.current?.setValue(source);
+    });
+  }, [currentFileName]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+
+    const update = () => setIsMobile(mq.matches);
+    update();
+
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   function handleStop() {
     abortRef.current?.abort();
@@ -64,30 +190,12 @@ export default function Home() {
     }
   }
 
-  async function compress(source: string) {
-    const encoded = new TextEncoder().encode(source);
-    const stream = new CompressionStream("deflate");
-    const writer = stream.writable.getWriter();
-    writer.write(encoded);
-    writer.close();
-    const compressed = await new Response(stream.readable).arrayBuffer();
-    return new Uint8Array(compressed);
-  }
-
-  function base64Encode(uint8: Uint8Array): string {
-    return btoa(
-      Array.from(uint8)
-        .map((b) => String.fromCharCode(b))
-        .join(""),
-    );
-  }
-
   async function share() {
     const url = new URL(window.location.href);
 
     const source = editorRef.current?.getValue() ?? "";
-    const cmp = await compress(source);
-    url.hash = base64Encode(cmp);
+    const cmp = await utils.compressString(source);
+    url.hash = utils.base64Encode(cmp);
 
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -104,6 +212,30 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("vimKeysState", String(vimKeysState));
   }, [vimKeysState]);
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (!dragging.current) return;
+
+      const newSplit = (e.clientX / window.innerWidth) * 100;
+
+      setSplit(Math.min(80, Math.max(20, newSplit)));
+    }
+
+    function onUp() {
+      dragging.current = false;
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  const busy = status === "compiling" || status === "running";
 
   return (
     <>
@@ -123,79 +255,78 @@ export default function Home() {
           <canvas key={canvasKey} id="canvas" className="flex-1 w-full" />
         </div>
       )}
+      {menuToggle && !canvasVisible && (
+        <Menu
+          menuToggle={() => setMenuToggle(!menuToggle)}
+          toggleVim={() => setVimKeysState(!vimKeysState)}
+          vimKeysState={vimKeysState}
+          setCurrentFileName={setCurrentFileName}
+        />
+      )}
       <div className="flex flex-col h-screen bg-[#1e1e1e] text-white overflow-hidden">
-        <div className="flex flex-col md:flex-row flex-1 min-h-0">
+        <div
+          className={
+            isMobile
+              ? "flex flex-col h-screen bg-[#1e1e1e] text-white overflow-hidden"
+              : "flex flex-1 min-h-0"
+          }
+        >
           <div
-            className="
-          flex flex-col min-w-0
-          border-b md:border-b-0 md:border-r border-[#3e3e3e]
-          /* Mobile: 75% height */
-          h-3/4 md:h-auto md:flex-1"
+            {...(isMobile
+              ? {
+                  className:
+                    "h-[70%] min-h-0 border-b border-[#3e3e3e] flex flex-col",
+                }
+              : {
+                  className: "flex flex-col min-w-0 border-r border-[#3e3e3e]",
+                  style: { width: `${split}%` },
+                })}
           >
-            <div
-              className="
-            flex flex-row min-w-0
-            px-3 py-1 bg-[#252526]"
-            >
-              <div
-                className="
-              flex items-center
-              px-3 py-1 bg-[#252526]
-              text-xs text-[#858585] font-mono"
-              >
-                <button
-                  className="
-                bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                font-semibold py-2 px-4 border border-gray-400
-                rounded shadow"
-                  onClick={share}
-                >
-                  Share
-                </button>
-              </div>
-
-              <div
-                className="
-              flex items-center
-              px-3 py-1 bg-[#252526]
-              text-xs text-[#858585] font-mono"
-              >
-                <button
-                  className="
-                bg-[#292c33] hover:bg-[#3e3e3e] text-[#858585]
-                font-semibold py-2 px-4 border border-gray-400 rounded shadow"
-                  onClick={() => setVimKeysState(!vimKeysState)}
-                >
-                  Toggle Vim {vimKeysState ? "On" : "Off"}
-                </button>
-              </div>
-            </div>
+            <TopBar
+              share={share}
+              run={handleRun}
+              ready={ready}
+              busy={busy}
+              status={status}
+              menuToggle={() => setMenuToggle(!menuToggle)}
+              vimKeysState={vimKeysState}
+              saveFileToLocalStorage={() =>
+                saveFileToLocalStorage(
+                  editorRef,
+                  currentFileName,
+                  setCurrentFileName,
+                )
+              }
+            />
 
             <div className="flex-1 min-h-0">
-              <Editor vimKeysEnabled={vimKeysState} ref={editorRef} />
+              <Editor
+                handleRun={handleRun}
+                vimKeysEnabled={vimKeysState}
+                currentFileName={currentFileName}
+                setCurrentFileName={setCurrentFileName}
+                setVimMode={setVimMode}
+                ref={editorRef}
+              />
             </div>
           </div>
+
+          {!isMobile && (
+            <div
+              className="w-1 cursor-col-resize bg-[#3e3e3e] hover:bg-blue-500 transition"
+              onMouseDown={() => (dragging.current = true)}
+            />
+          )}
+
           <div
-            className="
-        min-h-0
-
-        /* Mobile: bottom 25% */
-        h-1/4
-
-        /* Desktop: right panel */
-        md:h-auto md:w-[40%]
-      "
+            {...(isMobile
+              ? { className: "h-[30%] min-h-0" }
+              : { className: "min-h-0", style: { width: `${100 - split}%` } })}
           >
             <Output output={output} error={error} status={status} />
           </div>
         </div>
-        <Toolbar
-          onRun={handleRun}
-          onStop={handleStop}
-          ready={ready}
-          status={status}
-          vimMode={vimMode}
-        />
+        <Toolbar vimMode={vimMode} currentFileName={currentFileName} />
       </div>
     </>
   );

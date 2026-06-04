@@ -69,21 +69,21 @@ export function useCompiler() {
           probeRandSeed = (probeRandSeed * 1103515245 + 12345) >>> 0;
           return (probeRandSeed >>> 16) & 0x7fff;
         },
-        init_window: () => {
+        InitWindow: () => {
           throw new RaylibDetected();
         },
-        close_window: () => {},
-        window_should_close: (): boolean => false,
-        begin_drawing: () => {},
-        end_drawing: () => {},
-        set_target_fps: () => {},
-        is_key_pressed: (): boolean => false,
-        is_gamepad_button_pressed: (): boolean => false,
-        get_frame_time: (): number => 0,
-        check_collision_recs: (): boolean => false,
-        clear_background: () => {},
-        draw_rectangle: () => {},
-        draw_text: () => {},
+        CloseWindow: () => {},
+        WindowShouldClose: (): boolean => false,
+        BeginDrawing: () => {},
+        EndDrawing: () => {},
+        SetTargetFps: () => {},
+        IsKeyPressed: (): boolean => false,
+        IsGamepadButtonPressed: (): boolean => false,
+        GetFrameTime: (): number => 0,
+        CheckCollisionRecs: (): boolean => false,
+        ClearBackground: () => {},
+        DrawRectangle: () => {},
+        DrawText: () => {},
       },
     };
 
@@ -231,21 +231,21 @@ export function useCompiler() {
           randSeed = (randSeed * 1103515245 + 12345) >>> 0;
           return (randSeed >>> 16) & 0x7fff;
         },
-        init_window: (w: number, h: number, t: number) => {
+        InitWindow: (w: number, h: number, t: number) => {
           if (!raylibInitialized) {
             rl._rl_InitWindow(w, h, t);
             raylibInitialized = true;
           }
         },
-        set_target_fps: (_fps: number) => {
+        SetTargetFps: (_fps: number) => {
           if (!raylibInitialized) rl._rl_SetTargetFPS(0);
         },
-        window_should_close: (): boolean => signal?.aborted ?? false,
-        begin_drawing: () => rl._rl_BeginDrawing(),
+        WindowShouldClose: (): boolean => signal?.aborted ?? false,
+        BeginDrawing: () => rl._rl_BeginDrawing(),
         // Closes over asyncifyState / asyncifyDataAddr / asyncify_*_fn.
         // Those are let-variables set after WASM instantiation — closures
         // capture by reference so the updates are visible here at call time.
-        end_drawing: () => {
+        EndDrawing: () => {
           if (asyncifyState === "rewinding") {
             asyncify_stop_rewind_fn!();
             asyncifyState = "normal";
@@ -258,25 +258,25 @@ export function useCompiler() {
           asyncifyState = "unwinding";
           asyncify_start_unwind_fn!(asyncifyDataAddr);
         },
-        close_window: () => rl._rl_CloseWindow(),
-        is_key_pressed: (key: number): boolean =>
+        CloseWindow: () => rl._rl_CloseWindow(),
+        IsKeyPressed: (key: number): boolean =>
           rl._rl_IsKeyPressed(key) as boolean,
-        is_gamepad_button_pressed: (pad: number, key: number): boolean =>
+        IsGamepadButtonPressed: (pad: number, key: number): boolean =>
           rl._rl_IsGamepadButtonPressed(pad, key) as boolean,
-        get_frame_time: (): number => rl._rl_GetFrameTime() as number,
-        check_collision_recs: (lhs: unknown, rhs: unknown): boolean =>
+        GetFrameTime: (): number => rl._rl_GetFrameTime() as number,
+        CheckCollisionRecs: (lhs: unknown, rhs: unknown): boolean =>
           rl._rl_CheckCollisionRecs(lhs, rhs) as boolean,
-        clear_background: (ptr: number) => {
+        ClearBackground: (ptr: number) => {
           rl._rl_ClearBackground(writeRaylibColor(ptr));
         },
-        draw_rectangle: (
+        DrawRectangle: (
           x: number,
           y: number,
           w: number,
           h: number,
           colorPtr: number,
         ) => rl._rl_DrawRectangle(x, y, w, h, writeRaylibColor(colorPtr)),
-        draw_text: (
+        DrawText: (
           textPtr: number,
           x: number,
           y: number,

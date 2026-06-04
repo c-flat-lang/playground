@@ -11,19 +11,19 @@ export class Cli {
 }
 
 export enum DebugMode {
-    Token = 0,
-    Ast = 1,
-    SymbolTable = 2,
-    TypeChecker = 3,
+    Ast = 0,
+    ControlFlowGraph = 1,
+    DetectLoops = 2,
+    Emit = 3,
     Ir = 4,
-    LoweredIr = 5,
-    Emit = 6,
-    ControlFlowGraph = 7,
-    LivenessAnalysis = 8,
-    DetectLoops = 9,
-    PhiNodeElimination = 10,
-    LocalFunctionVariables = 11,
-    StructuringIr = 12,
+    LivenessAnalysis = 5,
+    LocalFunctionVariables = 6,
+    LoweredIr = 7,
+    PhiNodeElimination = 8,
+    StructuringIr = 9,
+    SymbolTable = 10,
+    Token = 11,
+    TypeChecker = 12,
     VirtRegRewrite = 13,
 }
 

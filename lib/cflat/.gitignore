@@ -1,2 +1,1 @@
-# Allow all build artifacts to be committed
-!*
+*
