@@ -3,11 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "postinstall": "node scripts/fix-binaryen.mjs"
+    "dev": "next dev --webpack",
+    "build": "next build --webpack"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
