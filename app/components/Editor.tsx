@@ -50,7 +50,7 @@ pub fn main() void {
     println(&"Hello, World!");
     println(&
       // Raw strings
-      \\Hello, World!
+      \\\\Hello, World!
     );
 }
 `;
